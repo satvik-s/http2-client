@@ -1,0 +1,59 @@
+{
+  "name": "@satvik-s/http2-client",
+  "version": "0.0.1",
+  "description": "node http2 wrapper",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "$(npm bin)/tsc --build tsconfig.json",
+    "test": "$(npm bin)/jest",
+    "prepare": "husky install",
+    "static-analysis": "$(npm bin)/eslint --cache --fix",
+    "prettier": "$(npm bin)/prettier --write .",
+    "check-package-updates": "$(npm bin)/ncu",
+    "make-package-updates": "$(npm bin)/ncu -u"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/satvik-s/http2-client.git"
+  },
+  "author": "Satvik Shukla",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/satvik-s/http2-client/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "homepage": "https://github.com/satvik-s/http2-client#readme",
+  "devDependencies": {
+    "@types/jest": "^26.0.23",
+    "@types/node": "^16.0.0",
+    "@typescript-eslint/eslint-plugin": "^4.28.1",
+    "@typescript-eslint/parser": "^4.28.1",
+    "dependency-cruiser": "^10.0.4",
+    "eslint": "^7.30.0",
+    "eslint-config-node": "^4.1.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-jest": "^24.3.6",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.4.0",
+    "husky": "^7.0.0",
+    "jest": "^27.0.6",
+    "lint-staged": "^11.0.0",
+    "npm-check-updates": "^11.8.1",
+    "prettier": "^2.3.2",
+    "ts-jest": "^27.0.3",
+    "ts-node": "^10.0.0",
+    "typescript": "^4.3.5"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "npm run static-analysis",
+      "npm run prettier"
+    ]
+  },
+  "publishConfig": {
+    "@satvik-s:registry": "https://npm.pkg.github.com"
+  }
+}
