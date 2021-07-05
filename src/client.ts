@@ -3,11 +3,11 @@ import {
     ClientSessionOptions,
     ClientSessionRequestOptions,
     connect,
+    constants,
     OutgoingHttpHeaders,
     SecureClientSessionOptions,
 } from 'http2';
 import { Http2RequestOptions } from './types/requestOptions';
-import { constants } from 'http2';
 import { Http2Response } from './types/response';
 import { PayloadType } from './types/payloadType';
 
