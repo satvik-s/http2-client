@@ -50,30 +50,16 @@ export class Http2Client {
             let contentTypeHeader: PayloadType = PayloadType.STRING;
             const responseHeaders: Record<string, string> = {};
             const data: string[] = [];
-            const requestHeaders = this._getRequestHeaders(requestOptions);
+            const requestBody = this._getRequestBody(requestOptions);
+            const requestHeaders = {
+                'Content-Type': 'application/json',
+                ...requestOptions.headers,
+                ...this._getRequestHeaders(requestOptions),
+                ...(requestBody && { 'Content-Length': requestBody.length }),
+            };
             const req = this.session.request(requestHeaders, nativeOptions);
 
             req.setEncoding('utf8');
-
-            if (
-                requestOptions.method &&
-                HTTP2_METHOD_WITH_PAYLOAD.includes(requestOptions.method)
-            ) {
-                const requestPayload = requestOptions.payload;
-                if (requestPayload) {
-                    switch (requestPayload.type) {
-                        case PayloadType.BUFFER:
-                            req.write(requestPayload.data);
-                            break;
-                        case PayloadType.JSON:
-                            req.write(Buffer.from(JSON.stringify(requestPayload.data)));
-                            break;
-                        case PayloadType.STRING:
-                            req.write(Buffer.from(requestPayload.data));
-                            break;
-                    }
-                }
-            }
 
             req.on('response', (headers) => {
                 if (headers[':status']) {
@@ -110,6 +96,23 @@ export class Http2Client {
                 reject(err);
             });
         });
+    }
+
+    private _getRequestBody(requestOptions: Partial<Http2RequestOptions>): Buffer | undefined {
+        if (requestOptions.method && HTTP2_METHOD_WITH_PAYLOAD.includes(requestOptions.method)) {
+            const requestBody = requestOptions.body;
+            if (requestBody) {
+                switch (requestBody.type) {
+                    case PayloadType.BUFFER:
+                        return requestBody.data;
+                    case PayloadType.JSON:
+                        return Buffer.from(JSON.stringify(requestBody.data));
+                    case PayloadType.STRING:
+                        return Buffer.from(requestBody.data);
+                }
+            }
+        }
+        return;
     }
 
     private _getRequestHeaders(options: Partial<Http2RequestOptions>): OutgoingHttpHeaders {

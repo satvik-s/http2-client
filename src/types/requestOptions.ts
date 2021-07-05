@@ -4,8 +4,9 @@ import { Scheme } from './scheme';
 
 export interface Http2RequestOptions {
     authority: string;
+    headers: Record<string, string>;
     method: Method;
     path: string;
-    payload: BufferPayload | JsonPayload | StringPayload;
+    body: BufferPayload | JsonPayload | StringPayload;
     scheme: Scheme;
 }
