@@ -9,4 +9,5 @@ export interface Http2RequestOptions {
     path: string;
     body: BufferPayload | JsonPayload | StringPayload;
     scheme: Scheme;
+    queryParams: Record<string, string>;
 }

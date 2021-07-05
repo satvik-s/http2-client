@@ -5,11 +5,12 @@ import {
     connect,
     constants,
     OutgoingHttpHeaders,
-    SecureClientSessionOptions,
+    SecureClientSessionOptions
 } from 'http2';
+import { PayloadType } from './types/payloadType';
 import { Http2RequestOptions } from './types/requestOptions';
 import { Http2Response } from './types/response';
-import { PayloadType } from './types/payloadType';
+import { convertQueryParamsToUrl } from './utils/requestUtil';
 
 const {
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
@@ -134,7 +135,8 @@ export class Http2Client {
                     [HTTP2_HEADER_AUTHORITY]: options.authority,
                 }),
                 [HTTP2_HEADER_METHOD]: options.method || 'GET',
-                [HTTP2_HEADER_PATH]: options.path || '/',
+                [HTTP2_HEADER_PATH]:
+                    (options.path || '/') + convertQueryParamsToUrl(options.queryParams),
                 [HTTP2_HEADER_SCHEME]: options.scheme || 'https',
                 ...(options.body?.type === PayloadType.JSON
                     ? { 'Content-Type': 'application/json' }
