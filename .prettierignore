@@ -1,2 +1,6 @@
-**/*
-!**/*.ts
+# Ignore everything:
+/*
+
+# Except myapp:
+!/src
+!/test
