@@ -16,13 +16,16 @@ const {
     HTTP2_HEADER_SCHEME,
     HTTP2_HEADER_STATUS,
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
-    HTTP2_HEADER_CONTENT_TYPE
+    HTTP2_HEADER_CONTENT_TYPE,
 } = constants;
 
 export class Http2Client {
     session: ClientHttp2Session;
 
-    constructor(url: string, options?: ClientSessionOptions | SecureClientSessionOptions) {
+    constructor(
+        private readonly url: string,
+        private readonly options?: ClientSessionOptions | SecureClientSessionOptions,
+    ) {
         this.session = connect(url, options);
     }
 
@@ -35,6 +38,10 @@ export class Http2Client {
         nativeOptions?: ClientSessionRequestOptions,
     ): Promise<Http2Response> {
         return new Promise((resolve, reject) => {
+            if (this.session.closed || this.session.destroyed) {
+                this._reconnect();
+            }
+
             let status = -1;
             let contentTypeHeader: Http2ResponseType = 'STRING';
             const responseHeaders: Record<string, string> = {};
@@ -99,5 +106,9 @@ export class Http2Client {
 
     private _getResponseStatus(status: number): number {
         return status === -1 ? HTTP_STATUS_INTERNAL_SERVER_ERROR : status;
+    }
+
+    private _reconnect(): void {
+        this.session = connect(this.url, this.options);
     }
 }
