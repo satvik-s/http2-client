@@ -52,10 +52,9 @@ export class Http2Client {
             const data: string[] = [];
             const requestBody = this._getRequestBody(requestOptions);
             const requestHeaders = {
-                'Content-Type': 'application/json',
-                ...requestOptions.headers,
                 ...this._getRequestHeaders(requestOptions),
                 ...(requestBody && { 'Content-Length': requestBody.length }),
+                ...requestOptions.headers,
             };
             const req = this.session.request(requestHeaders, nativeOptions);
 
@@ -125,6 +124,9 @@ export class Http2Client {
                 ...(options.scheme && {
                     [HTTP2_HEADER_SCHEME]: options.scheme,
                 }),
+                ...(options.body?.type === PayloadType.JSON
+                    ? { 'Content-Type': 'application/json' }
+                    : { 'Content-Type': 'text/plain' }),
             };
         } else {
             return {
@@ -134,6 +136,9 @@ export class Http2Client {
                 [HTTP2_HEADER_METHOD]: options.method || 'GET',
                 [HTTP2_HEADER_PATH]: options.path || '/',
                 [HTTP2_HEADER_SCHEME]: options.scheme || 'https',
+                ...(options.body?.type === PayloadType.JSON
+                    ? { 'Content-Type': 'application/json' }
+                    : { 'Content-Type': 'text/plain' }),
             };
         }
     }
