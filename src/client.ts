@@ -16,6 +16,7 @@ const {
     HTTP2_HEADER_SCHEME,
     HTTP2_HEADER_STATUS,
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
+    HTTP2_HEADER_CONTENT_TYPE
 } = constants;
 
 export class Http2Client {
@@ -58,7 +59,7 @@ export class Http2Client {
                         const header = headers[name]?.toString();
                         if (header) {
                             responseHeaders[name] = header;
-                            if (header.includes('json')) {
+                            if (name === HTTP2_HEADER_CONTENT_TYPE && header.includes('json')) {
                                 contentTypeHeader = 'JSON';
                             }
                         }
