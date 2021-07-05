@@ -3,21 +3,25 @@ import {
     ClientSessionOptions,
     ClientSessionRequestOptions,
     connect,
+    OutgoingHttpHeaders,
     SecureClientSessionOptions,
 } from 'http2';
 import { Http2RequestOptions } from './types/requestOptions';
 import { constants } from 'http2';
 import { Http2Response } from './types/response';
-import { Http2ResponseType } from './types/responseType';
+import { PayloadType } from './types/payloadType';
 
 const {
+    HTTP_STATUS_INTERNAL_SERVER_ERROR,
+    HTTP2_HEADER_AUTHORITY,
+    HTTP2_HEADER_CONTENT_TYPE,
     HTTP2_HEADER_METHOD,
     HTTP2_HEADER_PATH,
     HTTP2_HEADER_SCHEME,
     HTTP2_HEADER_STATUS,
-    HTTP_STATUS_INTERNAL_SERVER_ERROR,
-    HTTP2_HEADER_CONTENT_TYPE,
 } = constants;
+
+const HTTP2_METHOD_WITH_PAYLOAD = ['POST', 'PUT'];
 
 export class Http2Client {
     session: ClientHttp2Session;
@@ -34,7 +38,7 @@ export class Http2Client {
     }
 
     async request(
-        requestOptions: Http2RequestOptions,
+        requestOptions: Partial<Http2RequestOptions>,
         nativeOptions?: ClientSessionRequestOptions,
     ): Promise<Http2Response> {
         return new Promise((resolve, reject) => {
@@ -43,19 +47,33 @@ export class Http2Client {
             }
 
             let status = -1;
-            let contentTypeHeader: Http2ResponseType = 'STRING';
+            let contentTypeHeader: PayloadType = PayloadType.STRING;
             const responseHeaders: Record<string, string> = {};
             const data: string[] = [];
-            const req = this.session.request(
-                {
-                    [HTTP2_HEADER_METHOD]: requestOptions.method,
-                    [HTTP2_HEADER_PATH]: requestOptions.path,
-                    [HTTP2_HEADER_SCHEME]: requestOptions.scheme,
-                },
-                nativeOptions,
-            );
+            const requestHeaders = this._getRequestHeaders(requestOptions);
+            const req = this.session.request(requestHeaders, nativeOptions);
 
             req.setEncoding('utf8');
+
+            if (
+                requestOptions.method &&
+                HTTP2_METHOD_WITH_PAYLOAD.includes(requestOptions.method)
+            ) {
+                const requestPayload = requestOptions.payload;
+                if (requestPayload) {
+                    switch (requestPayload.type) {
+                        case PayloadType.BUFFER:
+                            req.write(requestPayload.data);
+                            break;
+                        case PayloadType.JSON:
+                            req.write(Buffer.from(JSON.stringify(requestPayload.data)));
+                            break;
+                        case PayloadType.STRING:
+                            req.write(Buffer.from(requestPayload.data));
+                            break;
+                    }
+                }
+            }
 
             req.on('response', (headers) => {
                 if (headers[':status']) {
@@ -67,7 +85,7 @@ export class Http2Client {
                         if (header) {
                             responseHeaders[name] = header;
                             if (name === HTTP2_HEADER_CONTENT_TYPE && header.includes('json')) {
-                                contentTypeHeader = 'JSON';
+                                contentTypeHeader = PayloadType.JSON;
                             }
                         }
                     }
@@ -94,11 +112,36 @@ export class Http2Client {
         });
     }
 
-    private _getResponseBody(data: unknown[], responseType: Http2ResponseType) {
+    private _getRequestHeaders(options: Partial<Http2RequestOptions>): OutgoingHttpHeaders {
+        if (options.method === 'OPTIONS') {
+            return {
+                ...(options.authority && {
+                    [HTTP2_HEADER_AUTHORITY]: options.authority,
+                }),
+                [HTTP2_HEADER_METHOD]: 'OPTIONS',
+                ...(options.scheme && {
+                    [HTTP2_HEADER_SCHEME]: options.scheme,
+                }),
+            };
+        } else {
+            return {
+                ...(options.authority && {
+                    [HTTP2_HEADER_AUTHORITY]: options.authority,
+                }),
+                [HTTP2_HEADER_METHOD]: options.method || 'GET',
+                [HTTP2_HEADER_PATH]: options.path || '/',
+                [HTTP2_HEADER_SCHEME]: options.scheme || 'https',
+            };
+        }
+    }
+
+    private _getResponseBody(data: unknown[], responseType: PayloadType) {
         switch (responseType) {
-            case 'JSON':
+            case PayloadType.BUFFER:
+                return data.join().toString();
+            case PayloadType.JSON:
                 return JSON.parse(data.join());
-            case 'STRING':
+            case PayloadType.STRING:
             default:
                 return data.join();
         }
