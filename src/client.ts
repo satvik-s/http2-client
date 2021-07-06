@@ -50,6 +50,7 @@ export class Http2Client {
 
             let status = -1;
             let contentTypeHeader: PayloadType = PayloadType.JSON;
+            const requestStartMilliSeconds = Date.now();
             const responseHeaders: Record<string, string> = {};
             const data: string[] = [];
             const requestBody = this._getRequestBody(requestOptions);
@@ -61,14 +62,14 @@ export class Http2Client {
             const req = this.session.request(requestHeaders, nativeOptions);
 
             req.setEncoding('utf8');
-            req.setTimeout(requestOptions.timeout || 2000, () => req.close(NGHTTP2_CANCEL));
+            req.setTimeout(requestOptions.inactiveTimeout || 2000, () => req.close(NGHTTP2_CANCEL));
 
             req.on('aborted', () => {
                 console.log('stream aborted');
+                reject(new Error('stream aborted'));
             });
 
             req.on('close', () => {
-                req.close();
                 resolve({
                     body: this._getResponseBody(data, contentTypeHeader),
                     headers: responseHeaders,
@@ -77,16 +78,20 @@ export class Http2Client {
             });
 
             req.on('data', (chunk) => {
+                if (
+                    requestOptions.activeTimeout &&
+                    Date.now() > requestStartMilliSeconds + requestOptions.activeTimeout
+                ) {
+                    req.close();
+                }
                 data.push(chunk);
             });
 
             req.on('error', (err) => {
-                req.close();
                 reject(err);
             });
 
             req.on('frameError', (errorType, code, id) => {
-                req.close();
                 reject({ errorType, code, id });
             });
 
@@ -109,6 +114,7 @@ export class Http2Client {
 
             req.on('timeout', () => {
                 console.log('stream timed out');
+                reject(new Error('stream timeout'));
             });
         });
     }

@@ -34,4 +34,13 @@ describe('client', () => {
         expect(resp.statusCode).toEqual(200);
         expect(resp.body).toContain('Protocol: HTTP/2.0');
     });
+
+    test('receive time stream for http2 request and exit w/ timeout', async () => {
+        const resp = await http2GoClient.request({
+            path: '/clockstream',
+            activeTimeout: 1000,
+        });
+
+        expect(resp.statusCode).toEqual(200);
+    });
 });
