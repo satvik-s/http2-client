@@ -4,10 +4,11 @@ import { Scheme } from './scheme';
 
 export interface Http2RequestOptions {
     authority: string;
+    body: BufferPayload | JsonPayload | StringPayload;
     headers: Record<string, string>;
     method: Method;
     path: string;
-    body: BufferPayload | JsonPayload | StringPayload;
-    scheme: Scheme;
     queryParams: Record<string, string>;
+    scheme: Scheme;
+    timeout: number;
 }

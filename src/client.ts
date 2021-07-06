@@ -5,7 +5,7 @@ import {
     connect,
     constants,
     OutgoingHttpHeaders,
-    SecureClientSessionOptions
+    SecureClientSessionOptions,
 } from 'http2';
 import { PayloadType } from './types/payloadType';
 import { Http2RequestOptions } from './types/requestOptions';
@@ -20,6 +20,7 @@ const {
     HTTP2_HEADER_PATH,
     HTTP2_HEADER_SCHEME,
     HTTP2_HEADER_STATUS,
+    NGHTTP2_CANCEL,
 } = constants;
 
 const HTTP2_METHOD_WITH_PAYLOAD = ['POST', 'PUT'];
@@ -48,7 +49,7 @@ export class Http2Client {
             }
 
             let status = -1;
-            let contentTypeHeader: PayloadType = PayloadType.STRING;
+            let contentTypeHeader: PayloadType = PayloadType.JSON;
             const responseHeaders: Record<string, string> = {};
             const data: string[] = [];
             const requestBody = this._getRequestBody(requestOptions);
@@ -60,6 +61,34 @@ export class Http2Client {
             const req = this.session.request(requestHeaders, nativeOptions);
 
             req.setEncoding('utf8');
+            req.setTimeout(requestOptions.timeout || 2000, () => req.close(NGHTTP2_CANCEL));
+
+            req.on('aborted', () => {
+                console.log('stream aborted');
+            });
+
+            req.on('close', () => {
+                req.close();
+                resolve({
+                    body: this._getResponseBody(data, contentTypeHeader),
+                    headers: responseHeaders,
+                    statusCode: this._getResponseStatus(status),
+                });
+            });
+
+            req.on('data', (chunk) => {
+                data.push(chunk);
+            });
+
+            req.on('error', (err) => {
+                req.close();
+                reject(err);
+            });
+
+            req.on('frameError', (errorType, code, id) => {
+                req.close();
+                reject({ errorType, code, id });
+            });
 
             req.on('response', (headers) => {
                 if (headers[':status']) {
@@ -70,30 +99,16 @@ export class Http2Client {
                         const header = headers[name]?.toString();
                         if (header) {
                             responseHeaders[name] = header;
-                            if (name === HTTP2_HEADER_CONTENT_TYPE && header.includes('json')) {
-                                contentTypeHeader = PayloadType.JSON;
+                            if (name === HTTP2_HEADER_CONTENT_TYPE && header.includes('text')) {
+                                contentTypeHeader = PayloadType.STRING;
                             }
                         }
                     }
                 }
             });
 
-            req.on('data', (chunk) => {
-                data.push(chunk);
-            });
-
-            req.on('end', () => {
-                req.end();
-                resolve({
-                    body: this._getResponseBody(data, contentTypeHeader),
-                    headers: responseHeaders,
-                    statusCode: this._getResponseStatus(status),
-                });
-            });
-
-            req.on('error', (err) => {
-                req.end();
-                reject(err);
+            req.on('timeout', () => {
+                console.log('stream timed out');
             });
         });
     }
@@ -125,9 +140,9 @@ export class Http2Client {
                 ...(options.scheme && {
                     [HTTP2_HEADER_SCHEME]: options.scheme,
                 }),
-                ...(options.body?.type === PayloadType.JSON
-                    ? { 'Content-Type': 'application/json' }
-                    : { 'Content-Type': 'text/plain' }),
+                ...(options.body?.type === PayloadType.STRING
+                    ? { 'Content-Type': 'text/plain' }
+                    : { 'Content-Type': 'application/json' }),
             };
         } else {
             return {
@@ -138,9 +153,9 @@ export class Http2Client {
                 [HTTP2_HEADER_PATH]:
                     (options.path || '/') + convertQueryParamsToUrl(options.queryParams),
                 [HTTP2_HEADER_SCHEME]: options.scheme || 'https',
-                ...(options.body?.type === PayloadType.JSON
-                    ? { 'Content-Type': 'application/json' }
-                    : { 'Content-Type': 'text/plain' }),
+                ...(options.body?.type === PayloadType.STRING
+                    ? { 'Content-Type': 'text/plain' }
+                    : { 'Content-Type': 'application/json' }),
             };
         }
     }
