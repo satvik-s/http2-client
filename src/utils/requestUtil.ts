@@ -1,3 +1,5 @@
+import { PayloadType } from '../types/payloadType';
+
 export function convertQueryParamsToUrl(params?: Record<string, string>): string {
     if (params) {
         return (
@@ -9,4 +11,13 @@ export function convertQueryParamsToUrl(params?: Record<string, string>): string
         );
     }
     return '';
+}
+
+export function getContentTypeHeader(payloadType?: PayloadType): string {
+    switch (payloadType) {
+        case PayloadType.JSON:
+            return 'application/json';
+        default:
+            return 'text/plain';
+    }
 }

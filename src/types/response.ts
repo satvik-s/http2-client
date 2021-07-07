@@ -1,5 +1,5 @@
 export interface Http2Response {
-    body: Buffer | Record<string, unknown> | string;
+    body: unknown;
     headers: Record<string, string>;
     statusCode: number;
 }

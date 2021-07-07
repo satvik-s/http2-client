@@ -3,6 +3,7 @@ import { Http2Client } from '../../src';
 describe('client', () => {
     let http2GoClient: Http2Client;
     let http2ProClient: Http2Client;
+    jest.setTimeout(20000);
 
     beforeAll(() => {
         http2GoClient = new Http2Client('https://http2.golang.org');
@@ -39,6 +40,38 @@ describe('client', () => {
         const resp = await http2GoClient.request({
             path: '/clockstream',
             activeTimeout: 1000,
+        });
+
+        expect(resp.statusCode).toEqual(200);
+    });
+
+    test.skip('receive request payload back', async () => {
+        const resp = await http2GoClient.request({
+            body: {
+                type: 'JSON' as any,
+                data: {
+                    hello: 'world',
+                },
+            },
+            method: 'GET',
+            path: '/ECHO',
+        });
+
+        expect(resp.statusCode).toEqual(200);
+        console.log(resp.body, resp.headers);
+    });
+
+    test('receive image file stream for http2 request', async () => {
+        const resp = await http2GoClient.request({
+            path: '/file/gopher.png',
+        });
+
+        expect(resp.statusCode).toEqual(200);
+    });
+
+    test('receive large zip file stream for http2 request', async () => {
+        const resp = await http2GoClient.request({
+            path: '/file/go.src.tar.gz',
         });
 
         expect(resp.statusCode).toEqual(200);

@@ -10,7 +10,9 @@ import {
 import { PayloadType } from './types/payloadType';
 import { Http2RequestOptions } from './types/requestOptions';
 import { Http2Response } from './types/response';
-import { convertQueryParamsToUrl } from './utils/requestUtil';
+import { convertQueryParamsToUrl, getContentTypeHeader } from './utils/requestUtil';
+import { getResponsePayloadType } from './utils/responseUtil';
+import { timestampIsInPast } from './utils/timeUtil';
 
 const {
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
@@ -23,7 +25,7 @@ const {
     NGHTTP2_CANCEL,
 } = constants;
 
-const HTTP2_METHOD_WITH_PAYLOAD = ['POST', 'PUT'];
+const HTTP2_METHODS_WITH_PAYLOAD = ['POST', 'PUT'];
 
 export class Http2Client {
     session: ClientHttp2Session;
@@ -49,7 +51,7 @@ export class Http2Client {
             }
 
             let status = -1;
-            let contentTypeHeader: PayloadType = PayloadType.JSON;
+            let responsePayloadType: PayloadType | undefined;
             const requestStartMilliSeconds = Date.now();
             const responseHeaders: Record<string, string> = {};
             const data: string[] = [];
@@ -59,6 +61,7 @@ export class Http2Client {
                 ...(requestBody && { 'Content-Length': requestBody.length }),
                 ...requestOptions.headers,
             };
+
             const req = this.session.request(requestHeaders, nativeOptions);
 
             req.setEncoding('utf8');
@@ -71,7 +74,7 @@ export class Http2Client {
 
             req.on('close', () => {
                 resolve({
-                    body: this._getResponseBody(data, contentTypeHeader),
+                    body: this._getResponseBody(data, responsePayloadType),
                     headers: responseHeaders,
                     statusCode: this._getResponseStatus(status),
                 });
@@ -80,7 +83,7 @@ export class Http2Client {
             req.on('data', (chunk) => {
                 if (
                     requestOptions.activeTimeout &&
-                    Date.now() > requestStartMilliSeconds + requestOptions.activeTimeout
+                    timestampIsInPast(requestStartMilliSeconds + requestOptions.activeTimeout)
                 ) {
                     req.close();
                 }
@@ -104,8 +107,8 @@ export class Http2Client {
                         const header = headers[name]?.toString();
                         if (header) {
                             responseHeaders[name] = header;
-                            if (name === HTTP2_HEADER_CONTENT_TYPE && header.includes('text')) {
-                                contentTypeHeader = PayloadType.STRING;
+                            if (name === HTTP2_HEADER_CONTENT_TYPE) {
+                                responsePayloadType = getResponsePayloadType(header);
                             }
                         }
                     }
@@ -120,7 +123,7 @@ export class Http2Client {
     }
 
     private _getRequestBody(requestOptions: Partial<Http2RequestOptions>): Buffer | undefined {
-        if (requestOptions.method && HTTP2_METHOD_WITH_PAYLOAD.includes(requestOptions.method)) {
+        if (requestOptions.method && HTTP2_METHODS_WITH_PAYLOAD.includes(requestOptions.method)) {
             const requestBody = requestOptions.body;
             if (requestBody) {
                 switch (requestBody.type) {
@@ -146,9 +149,7 @@ export class Http2Client {
                 ...(options.scheme && {
                     [HTTP2_HEADER_SCHEME]: options.scheme,
                 }),
-                ...(options.body?.type === PayloadType.STRING
-                    ? { 'Content-Type': 'text/plain' }
-                    : { 'Content-Type': 'application/json' }),
+                'Content-Type': getContentTypeHeader(options.body?.type),
             };
         } else {
             return {
@@ -159,19 +160,17 @@ export class Http2Client {
                 [HTTP2_HEADER_PATH]:
                     (options.path || '/') + convertQueryParamsToUrl(options.queryParams),
                 [HTTP2_HEADER_SCHEME]: options.scheme || 'https',
-                ...(options.body?.type === PayloadType.STRING
-                    ? { 'Content-Type': 'text/plain' }
-                    : { 'Content-Type': 'application/json' }),
+                'Content-Type': getContentTypeHeader(options.body?.type),
             };
         }
     }
 
-    private _getResponseBody(data: unknown[], responseType: PayloadType) {
+    private _getResponseBody(data: unknown[], responseType?: PayloadType) {
         switch (responseType) {
             case PayloadType.BUFFER:
                 return data.join().toString();
             case PayloadType.JSON:
-                return JSON.parse(data.join());
+                return data.length === 0 ? {} : JSON.parse(data.join());
             case PayloadType.STRING:
             default:
                 return data.join();
