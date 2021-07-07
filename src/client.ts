@@ -7,9 +7,12 @@ import {
     OutgoingHttpHeaders,
     SecureClientSessionOptions,
 } from 'http2';
+import { PayloadType } from './types/payloadType';
 import { Http2RequestOptions } from './types/requestOptions';
 import { Http2Response } from './types/response';
-import { PayloadType } from './types/payloadType';
+import { convertQueryParamsToUrl, getContentTypeHeader } from './utils/requestUtil';
+import { getResponsePayloadType } from './utils/responseUtil';
+import { timestampIsInPast } from './utils/timeUtil';
 
 const {
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
@@ -19,9 +22,10 @@ const {
     HTTP2_HEADER_PATH,
     HTTP2_HEADER_SCHEME,
     HTTP2_HEADER_STATUS,
+    NGHTTP2_CANCEL,
 } = constants;
 
-const HTTP2_METHOD_WITH_PAYLOAD = ['POST', 'PUT'];
+const HTTP2_METHODS_WITH_PAYLOAD = ['POST', 'PUT'];
 
 export class Http2Client {
     session: ClientHttp2Session;
@@ -47,7 +51,8 @@ export class Http2Client {
             }
 
             let status = -1;
-            let contentTypeHeader: PayloadType = PayloadType.STRING;
+            let responsePayloadType: PayloadType | undefined;
+            const requestStartMilliSeconds = Date.now();
             const responseHeaders: Record<string, string> = {};
             const data: string[] = [];
             const requestBody = this._getRequestBody(requestOptions);
@@ -56,9 +61,42 @@ export class Http2Client {
                 ...(requestBody && { 'Content-Length': requestBody.length }),
                 ...requestOptions.headers,
             };
+
             const req = this.session.request(requestHeaders, nativeOptions);
 
             req.setEncoding('utf8');
+            req.setTimeout(requestOptions.inactiveTimeout || 2000, () => req.close(NGHTTP2_CANCEL));
+
+            req.on('aborted', () => {
+                console.log('stream aborted');
+                reject(new Error('stream aborted'));
+            });
+
+            req.on('close', () => {
+                resolve({
+                    body: this._getResponseBody(data, responsePayloadType),
+                    headers: responseHeaders,
+                    statusCode: this._getResponseStatus(status),
+                });
+            });
+
+            req.on('data', (chunk) => {
+                if (
+                    requestOptions.activeTimeout &&
+                    timestampIsInPast(requestStartMilliSeconds + requestOptions.activeTimeout)
+                ) {
+                    req.close();
+                }
+                data.push(chunk);
+            });
+
+            req.on('error', (err) => {
+                reject(err);
+            });
+
+            req.on('frameError', (errorType, code, id) => {
+                reject({ errorType, code, id });
+            });
 
             req.on('response', (headers) => {
                 if (headers[':status']) {
@@ -69,36 +107,23 @@ export class Http2Client {
                         const header = headers[name]?.toString();
                         if (header) {
                             responseHeaders[name] = header;
-                            if (name === HTTP2_HEADER_CONTENT_TYPE && header.includes('json')) {
-                                contentTypeHeader = PayloadType.JSON;
+                            if (name === HTTP2_HEADER_CONTENT_TYPE) {
+                                responsePayloadType = getResponsePayloadType(header);
                             }
                         }
                     }
                 }
             });
 
-            req.on('data', (chunk) => {
-                data.push(chunk);
-            });
-
-            req.on('end', () => {
-                req.end();
-                resolve({
-                    body: this._getResponseBody(data, contentTypeHeader),
-                    headers: responseHeaders,
-                    statusCode: this._getResponseStatus(status),
-                });
-            });
-
-            req.on('error', (err) => {
-                req.end();
-                reject(err);
+            req.on('timeout', () => {
+                console.log('stream timed out');
+                reject(new Error('stream timeout'));
             });
         });
     }
 
     private _getRequestBody(requestOptions: Partial<Http2RequestOptions>): Buffer | undefined {
-        if (requestOptions.method && HTTP2_METHOD_WITH_PAYLOAD.includes(requestOptions.method)) {
+        if (requestOptions.method && HTTP2_METHODS_WITH_PAYLOAD.includes(requestOptions.method)) {
             const requestBody = requestOptions.body;
             if (requestBody) {
                 switch (requestBody.type) {
@@ -124,9 +149,7 @@ export class Http2Client {
                 ...(options.scheme && {
                     [HTTP2_HEADER_SCHEME]: options.scheme,
                 }),
-                ...(options.body?.type === PayloadType.JSON
-                    ? { 'Content-Type': 'application/json' }
-                    : { 'Content-Type': 'text/plain' }),
+                'Content-Type': getContentTypeHeader(options.body?.type),
             };
         } else {
             return {
@@ -134,21 +157,20 @@ export class Http2Client {
                     [HTTP2_HEADER_AUTHORITY]: options.authority,
                 }),
                 [HTTP2_HEADER_METHOD]: options.method || 'GET',
-                [HTTP2_HEADER_PATH]: options.path || '/',
+                [HTTP2_HEADER_PATH]:
+                    (options.path || '/') + convertQueryParamsToUrl(options.queryParams),
                 [HTTP2_HEADER_SCHEME]: options.scheme || 'https',
-                ...(options.body?.type === PayloadType.JSON
-                    ? { 'Content-Type': 'application/json' }
-                    : { 'Content-Type': 'text/plain' }),
+                'Content-Type': getContentTypeHeader(options.body?.type),
             };
         }
     }
 
-    private _getResponseBody(data: unknown[], responseType: PayloadType) {
+    private _getResponseBody(data: unknown[], responseType?: PayloadType) {
         switch (responseType) {
             case PayloadType.BUFFER:
                 return data.join().toString();
             case PayloadType.JSON:
-                return JSON.parse(data.join());
+                return data.length === 0 ? {} : JSON.parse(data.join());
             case PayloadType.STRING:
             default:
                 return data.join();
