@@ -45,20 +45,34 @@ describe('client', () => {
         expect(resp.statusCode).toEqual(200);
     });
 
-    test.skip('receive request payload back', async () => {
+    test('receive request string payload back', async () => {
         const resp = await http2GoClient.request({
             body: {
-                type: 'JSON' as any,
-                data: {
-                    hello: 'world',
-                },
+                type: 'STRING' as any,
+                data: 'test-string',
             },
-            method: 'GET',
+            method: 'PUT',
             path: '/ECHO',
         });
 
         expect(resp.statusCode).toEqual(200);
-        console.log(resp.body, resp.headers);
+        expect(resp.body).toEqual('TEST-STRING');
+    });
+
+    test('receive request json payload back', async () => {
+        const resp = await http2GoClient.request({
+            body: {
+                type: 'JSON' as any,
+                data: {
+                    key: 'value',
+                },
+            },
+            method: 'PUT',
+            path: '/ECHO',
+        });
+
+        expect(resp.statusCode).toEqual(200);
+        expect(resp.body).toEqual(JSON.stringify({ KEY: 'VALUE' }));
     });
 
     test('receive image file stream for http2 request', async () => {
