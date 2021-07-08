@@ -52,8 +52,5 @@
       "npm run static-analysis",
       "npm run prettier"
     ]
-  },
-  "publishConfig": {
-    "@satvik-s:registry": "https://npm.pkg.github.com"
   }
 }
