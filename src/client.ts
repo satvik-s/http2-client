@@ -66,10 +66,12 @@ export class Http2Client {
 
             req.setEncoding('utf8');
             req.setTimeout(requestOptions.inactiveTimeout || 2000, () => req.close(NGHTTP2_CANCEL));
+            if (requestBody) {
+                req.write(requestBody);
+            }
 
             req.on('aborted', () => {
                 console.log('stream aborted');
-                reject(new Error('stream aborted'));
             });
 
             req.on('close', () => {
@@ -91,10 +93,21 @@ export class Http2Client {
             });
 
             req.on('error', (err) => {
+                console.log('error');
+                console.log({
+                    name: err.name,
+                    message: err.message,
+                });
                 reject(err);
             });
 
             req.on('frameError', (errorType, code, id) => {
+                console.log('frame error');
+                console.log({
+                    errorType,
+                    code,
+                    id,
+                });
                 reject({ errorType, code, id });
             });
 
@@ -117,7 +130,6 @@ export class Http2Client {
 
             req.on('timeout', () => {
                 console.log('stream timed out');
-                reject(new Error('stream timeout'));
             });
         });
     }
