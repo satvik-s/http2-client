@@ -1,3 +1,9 @@
+<div>
+  <br />
+    <img width="300" src="https://github.com/satvik-s/http2-client/blob/develop/docs/images/http2-client.svg?raw=true">
+  <p />
+</div>
+
 # http2-client
 
 [![npm](https://img.shields.io/npm/v/@satvik-s/http2-client)](https://www.npmjs.com/package/@satvik-s/http2-client)
@@ -59,4 +65,4 @@ console.log('headers', resp.headers);
 
 ## Contributing
 
-Contributions are welcome! Read `CONTRIBUTING.md` for more details
+Contributions are welcome! Read `CONTRIBUTING.md` for more details.
