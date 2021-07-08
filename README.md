@@ -1,6 +1,6 @@
 <div>
   <br />
-    <img width="250" src="https://github.com/satvik-s/http2-client/blob/develop/docs/images/http2-client.png?raw=true">
+    <img width="250" src="https://github.com/satvik-s/http2-client/blob/main/docs/images/http2-client.png?raw=true">
   <p />
 </div>
 
