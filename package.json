@@ -19,6 +19,14 @@
   },
   "author": "Satvik Shukla",
   "license": "MIT",
+  "keywords": [
+    "http2-client",
+    "http2",
+    "client",
+    "wrapper",
+    "node",
+    "nodejs"
+],
   "bugs": {
     "url": "https://github.com/satvik-s/http2-client/issues"
   },
