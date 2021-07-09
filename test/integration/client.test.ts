@@ -2,17 +2,31 @@ import { Http2Client } from '../../src';
 
 describe('client', () => {
     let http2GoClient: Http2Client;
+    let http2LocalhostClient: Http2Client;
     let http2ProClient: Http2Client;
     jest.setTimeout(20000);
 
     beforeAll(() => {
         http2GoClient = new Http2Client('https://http2.golang.org');
+        http2LocalhostClient = new Http2Client('http://localhost:8080');
         http2ProClient = new Http2Client('https://http2.pro');
     });
 
     afterAll(() => {
         http2GoClient.close();
+        http2LocalhostClient.close();
         http2ProClient.close();
+    });
+
+    test('receive JSON response for local http2 request', async () => {
+        const resp = await http2LocalhostClient.request({
+            method: 'GET',
+            scheme: 'http',
+            path: '/ping',
+        });
+
+        expect(resp.statusCode).toEqual(200);
+        expect(resp.body).toEqual('pong');
     });
 
     test('receive JSON response for http2 request', async () => {
