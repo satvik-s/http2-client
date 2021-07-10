@@ -93,7 +93,6 @@ export class Http2Client {
             });
 
             req.on('error', (err) => {
-                console.log('error');
                 console.log({
                     name: err.name,
                     message: err.message,
@@ -102,7 +101,6 @@ export class Http2Client {
             });
 
             req.on('frameError', (errorType, code, id) => {
-                console.log('frame error');
                 console.log({
                     errorType,
                     code,

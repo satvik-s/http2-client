@@ -8,7 +8,7 @@ describe('client', () => {
 
     beforeAll(() => {
         http2GoClient = new Http2Client('https://http2.golang.org');
-        http2LocalhostClient = new Http2Client('http://localhost:8080');
+        http2LocalhostClient = new Http2Client('http://localhost:3001');
         http2ProClient = new Http2Client('https://http2.pro');
     });
 

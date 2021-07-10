@@ -1,19 +1,26 @@
-import fastify from 'fastify';
+import { fastify, FastifyInstance, FastifyLoggerInstance } from 'fastify';
+import { Http2Server, Http2ServerRequest, Http2ServerResponse } from 'http2';
 
-const server = fastify({
-    http2: true,
-    logger: true,
-});
+let server: FastifyInstance<
+    Http2Server,
+    Http2ServerRequest,
+    Http2ServerResponse,
+    FastifyLoggerInstance
+>;
 
-server.get('/ping', async (_request, _reply) => {
-    return 'pong';
-});
+export function getServer(): FastifyInstance<
+    Http2Server,
+    Http2ServerRequest,
+    Http2ServerResponse,
+    FastifyLoggerInstance
+> {
+    return server;
+}
 
-server.listen(8080, (err, address) => {
-    if (err) {
-        console.error(err);
-        // eslint-disable-next-line no-process-exit
-        process.exit(1);
-    }
-    console.log(`Server listening at ${address}`);
-});
+export function initServer(): void {
+    server = fastify({ http2: true, logger: true });
+
+    server.get('/', function (_request, reply) {
+        reply.code(200).send({ hello: 'world' });
+    });
+}

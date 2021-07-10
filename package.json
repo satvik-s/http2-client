@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "$(npm bin)/tsc --build tsconfig.json",
-    "test": "$(npm bin)/jest",
+    "test": "$(npm bin)/jest --runInBand",
     "prepare": "husky install",
     "static-analysis": "$(npm bin)/eslint --cache --fix",
     "prettier": "$(npm bin)/prettier --write .",
