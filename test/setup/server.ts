@@ -21,6 +21,10 @@ export function initServer(): void {
     server = fastify({ http2: true, logger: true });
 
     server.get('/', function (_request, reply) {
-        reply.code(200).send({ hello: 'world' });
+        reply.code(200).send('hello world');
+    });
+
+    server.get('/ping', function (_request, reply) {
+        reply.code(200).send('pong');
     });
 }
